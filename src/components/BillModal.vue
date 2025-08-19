@@ -657,7 +657,7 @@ import { ref, watch, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useInstallmentCalculator } from '../composables/useInstallmentCalculator'
 import { useBillManager } from '../composables/useBillManager'
-import { PaymentMethod } from '../types/installment'
+import { PaymentMethod, type BillRecord } from '../types/installment'
 import { calculatePaidInstallments } from '../utils/dateUtils'
 import {
   getVisiblePurposes,
@@ -668,17 +668,13 @@ import {
 
 const props = defineProps<{
   modelValue: boolean
-  editingBill?: {
-    id: string
-    name: string
-    input: object
-  } | null
+  editingBill?: BillRecord | null
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'bill-added': [bill: object]
-  'bill-updated': [bill: object]
+  'bill-added': [bill: Omit<BillRecord, 'id' | 'createdAt' | 'updatedAt'>]
+  'bill-updated': [bill: Omit<BillRecord, 'createdAt' | 'updatedAt'>]
 }>()
 
 const { t, locale } = useI18n()
