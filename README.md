@@ -1,7 +1,7 @@
 # InstallmentTracker
 
-[![CI](https://github.com/jackyczj/payslip/actions/workflows/ci.yml/badge.svg)](https://github.com/jackyczj/payslip/actions/workflows/ci.yml)
-[![Deploy](https://github.com/jackyczj/payslip/actions/workflows/deploy.yml/badge.svg)](https://github.com/jackyczj/payslip/actions/workflows/deploy.yml)
+[![CI](https://github.com/JackyCZJ/installment-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/jackyczj/payslip/actions/workflows/ci.yml)
+[![Deploy](https://github.com/JackyCZJ/installment-tracker/actions/workflows/deploy.yml/badge.svg)](https://github.com/jackyczj/payslip/actions/workflows/deploy.yml)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.5-green)](https://vuejs.org/)

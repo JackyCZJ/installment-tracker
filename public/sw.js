@@ -1,5 +1,6 @@
-const CACHE_NAME = 'installment-tracker-v2'
-const BASE_PATH = '/installment-tracker'
+const CACHE_NAME = 'installment-tracker-v3'
+// 动态推导当前 scope 的路径，兼容任意子路径部署
+const BASE_PATH = self.registration.scope.replace(/\/$/, '')
 const urlsToCache = [
   `${BASE_PATH}/`,
   `${BASE_PATH}/manifest.json`,

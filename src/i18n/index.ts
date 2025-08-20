@@ -5,20 +5,25 @@ import en from './locales/en.json'
 import { getDefaultCurrency } from '../config/currencies'
 
 // 获取浏览器语言
+const normalizeLocale = (val: string): string => {
+  const v = val.toLowerCase()
+  if (v.includes('zh') && (v.includes('tw') || v.includes('hk') || v.includes('hant'))) {
+    return 'zh-Hant'
+  }
+  if (v.includes('zh')) return 'zh-Hans'
+  return 'en'
+}
+
 const getBrowserLocale = (): string => {
   const navigatorLocale = navigator.language
-  if (navigatorLocale.startsWith('zh')) {
-    if (navigatorLocale.includes('TW') || navigatorLocale.includes('HK')) {
-      return 'zh-Hant'
-    }
-    return 'zh-Hans'
-  }
-  return 'en'
+  return normalizeLocale(navigatorLocale)
 }
 
 // 获取存储的语言设置
 const getStoredLocale = (): string => {
-  return localStorage.getItem('locale') || getBrowserLocale()
+  const val = localStorage.getItem('locale')
+  if (val) return normalizeLocale(val)
+  return getBrowserLocale()
 }
 
 // 获取存储的币种设置

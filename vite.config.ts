@@ -12,8 +12,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  // GitHub Pages 配置
-  base: process.env.NODE_ENV === 'production' ? '/installment-tracker/' : '/',
+  // 生产使用相对 base，确保可部署在任意子路径
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   define: {
     __VUE_I18N_FULL_INSTALL__: true,
     __VUE_I18N_LEGACY_API__: false,
