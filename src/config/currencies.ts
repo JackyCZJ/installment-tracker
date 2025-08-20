@@ -226,7 +226,6 @@ export const formatCurrency = (amount: number, currency: Currency): string => {
 
   if (currency.position === 'before') {
     return `${currency.symbol}${formattedAmount}`
-  } else {
-    return `${formattedAmount} ${currency.symbol}`
   }
+  return `${formattedAmount} ${currency.symbol}`
 }

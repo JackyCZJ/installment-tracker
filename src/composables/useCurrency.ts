@@ -1,23 +1,23 @@
 import { ref, computed, watch, readonly } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { 
-  SUPPORTED_CURRENCIES, 
-  getCurrencyByCode, 
-  getDefaultCurrency, 
+import {
+  SUPPORTED_CURRENCIES,
+  getCurrencyByCode,
+  getDefaultCurrency,
   formatCurrency,
-  type Currency 
+  type Currency,
 } from '../config/currencies'
 import { getCurrentCurrencyCode, setCurrency } from '../i18n'
 
 export function useCurrency() {
   const { locale } = useI18n()
-  
+
   // 初始化当前币种
   const getInitialCurrency = (): Currency => {
     const currencyCode = getCurrentCurrencyCode()
     return getCurrencyByCode(currencyCode) || getDefaultCurrency(locale.value)
   }
-  
+
   // 当前币种
   const currentCurrency = ref<Currency>(getInitialCurrency())
 
@@ -60,6 +60,6 @@ export function useCurrency() {
     formatAmount,
     supportedCurrencies,
     getCurrency,
-    getDefault
+    getDefault,
   }
 }

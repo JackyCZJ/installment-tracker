@@ -25,7 +25,7 @@ export function useBillManager() {
       if (storedBills) {
         const parsedBills = JSON.parse(storedBills)
         // 转换日期字符串为Date对象
-        bills.value = parsedBills.map((bill: any) => ({
+        bills.value = parsedBills.map((bill: BillRecord) => ({
           ...bill,
           createdAt: new Date(bill.createdAt),
         }))
@@ -270,7 +270,7 @@ export function useBillManager() {
       .map((row) => row.map((cell) => `"${cell}"`).join(','))
       .join('\n')
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `分期账单汇总_${new Date().toISOString().split('T')[0]}.csv`
@@ -304,7 +304,7 @@ export function useBillManager() {
             <h1>分期账单汇总报告</h1>
             <p>生成时间: ${new Date().toLocaleString('zh-CN')}</p>
           </div>
-          
+
           <div class="summary">
             <h2>总体统计</h2>
             <p>账单总数: ${totalSummary.value.totalBills}</p>

@@ -36,15 +36,15 @@ const handleWelcomeConfirm = () => {
     <div class="absolute inset-0">
       <div
         class="absolute top-0 left-0 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
-      ></div>
+      />
       <div
         class="absolute top-0 right-0 w-72 h-72 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
         style="animation-delay: 1s"
-      ></div>
+      />
       <div
         class="absolute bottom-0 left-0 w-72 h-72 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
         style="animation-delay: 2s"
-      ></div>
+      />
     </div>
 
     <!-- 主要内容 -->

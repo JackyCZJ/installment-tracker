@@ -195,15 +195,6 @@ export function useInstallmentCalculator() {
     return (principal * (rate * Math.pow(1 + rate, n))) / (Math.pow(1 + rate, n) - 1)
   }
 
-  // 兼容旧函数名
-  function calculateMonthlyPayment(
-    principal: number,
-    monthlyRate: number,
-    installments: number,
-  ): number {
-    return calculateEqualPayment(principal, monthlyRate, installments)
-  }
-
   function formatCurrency(amount: number): string {
     return new Intl.NumberFormat('zh-CN', {
       style: 'currency',

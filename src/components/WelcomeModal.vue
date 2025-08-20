@@ -1,3 +1,27 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+defineProps<{
+  modelValue: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  confirm: []
+}>()
+
+const { t } = useI18n()
+
+const handleBackdropClick = () => {
+  // 不允许点击背景关闭，必须点击确认按钮
+}
+
+const handleConfirm = () => {
+  emit('confirm')
+  emit('update:modelValue', false)
+}
+</script>
+
 <template>
   <div
     v-if="modelValue"
@@ -139,8 +163,8 @@
         <!-- 操作按钮 -->
         <div class="mt-6 pt-4 border-t border-gray-200">
           <button
-            @click="handleConfirm"
             class="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 font-medium text-sm sm:text-base"
+            @click="handleConfirm"
           >
             {{ t('welcome.confirmButton') }}
           </button>
@@ -149,27 +173,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-
-const props = defineProps<{
-  modelValue: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  confirm: []
-}>()
-
-const handleBackdropClick = () => {
-  // 不允许点击背景关闭，必须点击确认按钮
-}
-
-const handleConfirm = () => {
-  emit('confirm')
-  emit('update:modelValue', false)
-}
-</script>

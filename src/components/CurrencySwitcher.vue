@@ -1,8 +1,61 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { SUPPORTED_CURRENCIES, type Currency } from '../config/currencies'
+
+const props = defineProps<{
+  modelValue: Currency
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [currency: Currency]
+}>()
+
+const showDropdown = ref(false)
+const searchQuery = ref('')
+
+const currentCurrency = computed(() => props.modelValue)
+
+const filteredCurrencies = computed(() => {
+  if (!searchQuery.value) {
+    return SUPPORTED_CURRENCIES
+  }
+
+  const query = searchQuery.value.toLowerCase()
+  return SUPPORTED_CURRENCIES.filter(
+    (currency) =>
+      currency.name.toLowerCase().includes(query) ||
+      currency.nativeName.toLowerCase().includes(query) ||
+      currency.code.toLowerCase().includes(query) ||
+      currency.symbol.toLowerCase().includes(query),
+  )
+})
+
+const switchCurrency = (currency: Currency) => {
+  emit('update:modelValue', currency)
+  showDropdown.value = false
+  searchQuery.value = ''
+}
+
+// 点击外部关闭下拉菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.relative')) {
+    showDropdown.value = false
+    searchQuery.value = ''
+  }
+}
+
+// 监听点击事件
+if (typeof window !== 'undefined') {
+  document.addEventListener('click', handleClickOutside)
+}
+</script>
+
 <template>
   <div class="relative">
     <button
-      @click="showDropdown = !showDropdown"
       class="flex items-center px-3 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300 text-white"
+      @click="showDropdown = !showDropdown"
     >
       <span class="text-sm font-medium">{{ currentCurrency.symbol }}</span>
       <svg
@@ -32,15 +85,15 @@
             class="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        
+
         <!-- 币种列表 -->
         <div class="max-h-64 overflow-y-auto">
           <button
             v-for="currency in filteredCurrencies"
             :key="currency.code"
-            @click="switchCurrency(currency)"
             class="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors duration-200 flex items-center"
             :class="{ 'bg-blue-100 text-blue-700': currentCurrency.code === currency.code }"
+            @click="switchCurrency(currency)"
           >
             <div class="flex-1">
               <div class="font-medium text-gray-800">{{ currency.symbol }} {{ currency.name }}</div>
@@ -60,11 +113,21 @@
             </svg>
           </button>
         </div>
-        
+
         <!-- 无搜索结果 -->
         <div v-if="filteredCurrencies.length === 0" class="px-4 py-8 text-center text-gray-500">
-          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            class="w-12 h-12 mx-auto mb-3 text-gray-300"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
           <p class="text-sm">未找到匹配的币种</p>
         </div>
@@ -72,55 +135,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { SUPPORTED_CURRENCIES, type Currency } from '../config/currencies'
-
-const props = defineProps<{
-  modelValue: Currency
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [currency: Currency]
-}>()
-
-const showDropdown = ref(false)
-const searchQuery = ref('')
-
-const currentCurrency = computed(() => props.modelValue)
-
-const filteredCurrencies = computed(() => {
-  if (!searchQuery.value) {
-    return SUPPORTED_CURRENCIES
-  }
-  
-  const query = searchQuery.value.toLowerCase()
-  return SUPPORTED_CURRENCIES.filter(currency => 
-    currency.name.toLowerCase().includes(query) ||
-    currency.nativeName.toLowerCase().includes(query) ||
-    currency.code.toLowerCase().includes(query) ||
-    currency.symbol.toLowerCase().includes(query)
-  )
-})
-
-const switchCurrency = (currency: Currency) => {
-  emit('update:modelValue', currency)
-  showDropdown.value = false
-  searchQuery.value = ''
-}
-
-// 点击外部关闭下拉菜单
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.relative')) {
-    showDropdown.value = false
-    searchQuery.value = ''
-  }
-}
-
-// 监听点击事件
-if (typeof window !== 'undefined') {
-  document.addEventListener('click', handleClickOutside)
-}
-</script>

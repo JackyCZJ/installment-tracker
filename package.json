@@ -14,8 +14,15 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build --force",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "quality": "run-s format:check lint:check type-check",
+    "quality:fix": "run-s format lint:fix",
+    "pre-commit": "run-s quality",
+    "prepare": "husky",
     "generate-icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
@@ -35,7 +42,9 @@
     "autoprefixer": "^10.4.21",
     "eslint": "^9.31.0",
     "eslint-plugin-vue": "~10.3.0",
+    "husky": "^9.1.7",
     "jiti": "^2.4.2",
+    "lint-staged": "^16.1.5",
     "npm-run-all2": "^8.0.4",
     "postcss": "^8.5.6",
     "prettier": "3.6.2",
@@ -45,5 +54,14 @@
     "vite": "^7.0.6",
     "vite-plugin-vue-devtools": "^8.0.0",
     "vue-tsc": "^3.0.4"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,vue,mjs,cjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml,css,scss,less}": [
+      "prettier --write"
+    ]
   }
 }

@@ -1,5 +1,12 @@
 # InstallmentTracker
 
+[![CI](https://github.com/jackyczj/payslip/actions/workflows/ci.yml/badge.svg)](https://github.com/jackyczj/payslip/actions/workflows/ci.yml)
+[![Deploy](https://github.com/jackyczj/payslip/actions/workflows/deploy.yml/badge.svg)](https://github.com/jackyczj/payslip/actions/workflows/deploy.yml)
+[![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
+[![Vue](https://img.shields.io/badge/Vue-3.5-green)](https://vuejs.org/)
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+
 一个基于 Vue 3 + TypeScript + Tailwind CSS 的分期账单追踪器，用于计算和管理分期还款计划。
 
 ## 功能特性
@@ -188,6 +195,53 @@ src/
 - 遵循 Vue 3 Composition API 规范
 - 使用 Tailwind CSS 进行样式设计
 - 保持代码简洁和可维护性
+
+### 代码质量工具
+
+项目集成了多个代码质量工具，确保代码的规范性和可维护性：
+
+#### ESLint
+- 使用 Vue.js 官方推荐的 ESLint 配置
+- 集成 TypeScript ESLint 规则
+- 自动修复常见代码问题
+
+#### Prettier
+- 统一代码格式
+- 与 ESLint 集成，避免规则冲突
+
+#### TypeScript
+- 严格的类型检查
+- 提供更好的 IDE 支持
+
+### 可用脚本
+
+```bash
+# 代码检查
+pnpm lint:check        # 检查代码规范
+pnpm lint:fix          # 自动修复代码问题
+
+# 代码格式化
+pnpm format:check      # 检查代码格式
+pnpm format            # 格式化代码
+
+# 类型检查
+pnpm type-check        # TypeScript 类型检查
+
+# 一键检查所有
+pnpm quality           # 运行所有检查（格式、规范、类型）
+pnpm quality:fix       # 自动修复所有可修复的问题
+
+# 提交前检查
+pnpm pre-commit        # 运行提交前的质量检查
+```
+
+### 最佳实践
+
+1. **提交前检查**：在提交代码前运行 `pnpm quality` 确保代码质量
+2. **自动修复**：使用 `pnpm quality:fix` 自动修复大部分问题
+3. **类型安全**：避免使用 `any` 类型，确保类型安全
+4. **组件规范**：遵循 Vue.js 组件命名和结构规范
+5. **注释规范**：为复杂逻辑添加清晰的注释
 
 ## 部署
 

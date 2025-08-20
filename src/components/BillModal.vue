@@ -1,10 +1,213 @@
+<script setup lang="ts">
+import { ref, watch, computed, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useInstallmentCalculator } from '../composables/useInstallmentCalculator'
+import { useBillManager } from '../composables/useBillManager'
+import { PaymentMethod, type BillRecord } from '../types/installment'
+import { calculatePaidInstallments } from '../utils/dateUtils'
+import {
+  getVisiblePurposes,
+  getHiddenPurposes,
+  getPurposeById,
+  type Purpose,
+} from '../config/purposes'
+
+const props = defineProps<{
+  modelValue: boolean
+  editingBill?: BillRecord | null
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'bill-added': [bill: Omit<BillRecord, 'id' | 'createdAt' | 'updatedAt'>]
+  'bill-updated': [bill: Omit<BillRecord, 'createdAt' | 'updatedAt'>]
+}>()
+
+const { t, locale } = useI18n()
+const { input, summary, isValidInput, resetForm } = useInstallmentCalculator()
+const { billSources } = useBillManager()
+
+const billName = ref('')
+const showSourceSuggestions = ref(false)
+const startDateString = ref('')
+
+// 用途相关状态
+const showPurposeSelector = ref(false)
+const showHiddenPurposes = ref(false)
+const selectedPurpose = ref<Purpose | null>(null)
+
+// 获取用途选项
+const visiblePurposes = getVisiblePurposes()
+const hiddenPurposes = getHiddenPurposes()
+
+// 计算属性
+const isEditing = computed(() => !!props.editingBill)
+
+// 获取当前日期字符串
+const getCurrentDateString = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 自动计算已还期数
+const calculateAutoPaidInstallments = () => {
+  if (!startDateString.value) return
+
+  const startDate = new Date(startDateString.value)
+  const paidInstallments = calculatePaidInstallments(startDate, input.value.installments)
+  input.value.paidInstallments = paidInstallments
+}
+
+// 检查是否有输入
+const hasInput = ref(false)
+const checkHasInput = () => {
+  hasInput.value =
+    input.value.totalAmount > 0 ||
+    input.value.installments > 0 ||
+    input.value.annualRate > 0 ||
+    input.value.paidInstallments > 0 ||
+    input.value.paidAmount > 0
+}
+
+// 监听输入变化
+watch(input, checkHasInput, { deep: true })
+
+// 监听语言变化，强制重新渲染
+watch(
+  locale,
+  () => {
+    // 语言切换时，强制组件重新渲染
+    // 通过更新key来强制重新渲染整个组件
+    if (props.modelValue) {
+      // 重新初始化表单状态以确保i18n正确应用
+      nextTick(() => {
+        // 确保DOM更新完成后再进行其他操作
+      })
+    }
+  },
+  { flush: 'post' },
+)
+
+// 过滤来源建议
+const filteredSources = computed(() => {
+  if (!input.value.source) return billSources.value
+  return billSources.value.filter((source) =>
+    source.toLowerCase().includes(input.value.source.toLowerCase()),
+  )
+})
+
+// 选择来源
+const selectSource = (source: string) => {
+  input.value.source = source
+  showSourceSuggestions.value = false
+}
+
+// 处理失焦事件
+const handleBlur = () => {
+  setTimeout(() => {
+    showSourceSuggestions.value = false
+  }, 200)
+}
+
+// 选择用途
+const selectPurpose = (purpose: Purpose) => {
+  selectedPurpose.value = purpose
+  input.value.purpose = purpose.id
+  showPurposeSelector.value = false
+  showHiddenPurposes.value = false
+}
+
+// 处理背景点击
+const handleBackdropClick = (event: Event) => {
+  // 确保只有点击背景遮罩时才关闭Modal，不是点击Modal内容
+  if (event.target === event.currentTarget) {
+    emit('update:modelValue', false)
+  }
+}
+
+// 监听开始日期变化，自动计算已还期数
+watch(startDateString, (newDate) => {
+  if (newDate && input.value.autoCalculatePaidInstallments) {
+    calculateAutoPaidInstallments()
+  }
+})
+
+// 监听自动计算开关变化
+watch(
+  () => input.value.autoCalculatePaidInstallments,
+  (enabled) => {
+    if (enabled && startDateString.value) {
+      calculateAutoPaidInstallments()
+    }
+  },
+)
+
+// 监听编辑模式变化，填充数据
+watch(
+  () => props.editingBill,
+  (bill) => {
+    if (bill) {
+      // 编辑模式：填充现有数据
+      billName.value = bill.name
+      input.value = { ...bill.input }
+      if (bill.input.startDate) {
+        startDateString.value = getCurrentDateString()
+      }
+      // 设置选中的用途
+      if (bill.input.purpose) {
+        selectedPurpose.value = getPurposeById(bill.input.purpose) || null
+      }
+    } else {
+      // 添加模式：重置表单
+      resetForm()
+      billName.value = ''
+      startDateString.value = ''
+      selectedPurpose.value = null
+      showPurposeSelector.value = false
+      showHiddenPurposes.value = false
+    }
+  },
+  { immediate: true },
+)
+
+// 提交表单
+const handleSubmit = () => {
+  if (!isValidInput.value || !billName.value.trim() || !summary.value || !selectedPurpose.value) {
+    return
+  }
+
+  if (isEditing.value && props.editingBill) {
+    // 编辑模式：更新账单
+    emit('bill-updated', {
+      id: props.editingBill.id,
+      name: billName.value.trim(),
+      input: { ...input.value },
+      summary: summary.value,
+    })
+  } else {
+    // 添加模式：添加新账单
+    emit('bill-added', {
+      name: billName.value.trim(),
+      input: { ...input.value },
+      summary: summary.value,
+    })
+  }
+
+  // 关闭模态框
+  emit('update:modelValue', false)
+}
+</script>
+
 <template>
   <div
     v-if="modelValue"
     :key="locale"
     class="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-xl p-2 sm:p-4"
-    @click="handleBackdropClick"
     style="backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px)"
+    @click="handleBackdropClick"
   >
     <div
       class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
@@ -46,8 +249,8 @@
             </div>
           </div>
           <button
-            @click="$emit('update:modelValue', false)"
             class="p-1.5 sm:p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            @click="$emit('update:modelValue', false)"
           >
             <svg
               class="w-5 h-5 sm:w-6 sm:h-6 text-gray-500"
@@ -67,7 +270,7 @@
 
         <!-- 模态框内容 -->
         <div class="p-4 sm:p-6 pb-6 sm:pb-8">
-          <form @submit.prevent="handleSubmit" class="space-y-4 sm:space-y-6">
+          <form class="space-y-4 sm:space-y-6" @submit.prevent="handleSubmit">
             <!-- 账单名称 -->
             <div class="group">
               <label
@@ -129,9 +332,9 @@
                 type="text"
                 class="w-full px-4 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300 text-gray-800 placeholder-gray-400"
                 :placeholder="t('billModal.sourcePlaceholder')"
+                required
                 @focus="showSourceSuggestions = true"
                 @blur="handleBlur"
-                required
               />
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <span class="text-gray-400 text-sm">🏦</span>
@@ -145,8 +348,8 @@
                 <div
                   v-for="source in filteredSources"
                   :key="source"
-                  @click="selectSource(source)"
                   class="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  @click="selectSource(source)"
                 >
                   {{ source }}
                 </div>
@@ -175,9 +378,9 @@
               <!-- 显示用途选择器 -->
               <div class="relative">
                 <button
-                  @click="showPurposeSelector = !showPurposeSelector"
                   type="button"
                   class="w-full px-4 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 text-gray-800 flex items-center justify-between"
+                  @click="showPurposeSelector = !showPurposeSelector"
                 >
                   <span v-if="selectedPurpose" class="flex items-center">
                     <span class="mr-2">{{ selectedPurpose.icon }}</span>
@@ -218,8 +421,8 @@
                     <div
                       v-for="purpose in visiblePurposes"
                       :key="purpose.id"
-                      @click="selectPurpose(purpose)"
                       class="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors"
+                      @click="selectPurpose(purpose)"
                     >
                       <span class="text-lg mr-3">{{ purpose.icon }}</span>
                       <div class="flex-1">
@@ -230,14 +433,14 @@
                   </div>
 
                   <!-- 分隔线 -->
-                  <div class="border-t border-gray-200 my-1"></div>
+                  <div class="border-t border-gray-200 my-1" />
 
                   <!-- 显示隐藏选项按钮 -->
                   <div class="p-2">
                     <button
-                      @click="showHiddenPurposes = !showHiddenPurposes"
                       type="button"
                       class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                      @click="showHiddenPurposes = !showHiddenPurposes"
                     >
                       <span>{{
                         showHiddenPurposes
@@ -265,8 +468,8 @@
                       <div
                         v-for="purpose in hiddenPurposes"
                         :key="purpose.id"
-                        @click="selectPurpose(purpose)"
                         class="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors"
+                        @click="selectPurpose(purpose)"
                       >
                         <span class="text-lg mr-3">{{ purpose.icon }}</span>
                         <div class="flex-1">
@@ -500,9 +703,9 @@
                   </label>
                   <button
                     v-if="input.autoCalculatePaidInstallments && startDateString"
-                    @click="calculateAutoPaidInstallments"
                     type="button"
                     class="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
+                    @click="calculateAutoPaidInstallments"
                   >
                     {{ t('billModal.recalculate') }}
                   </button>
@@ -632,8 +835,8 @@
             >
               <button
                 type="button"
-                @click="$emit('update:modelValue', false)"
                 class="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm sm:text-base"
+                @click="$emit('update:modelValue', false)"
               >
                 {{ t('billModal.cancel') }}
               </button>
@@ -651,206 +854,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch, computed, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useInstallmentCalculator } from '../composables/useInstallmentCalculator'
-import { useBillManager } from '../composables/useBillManager'
-import { PaymentMethod, type BillRecord } from '../types/installment'
-import { calculatePaidInstallments } from '../utils/dateUtils'
-import {
-  getVisiblePurposes,
-  getHiddenPurposes,
-  getPurposeById,
-  type Purpose,
-} from '../config/purposes'
-
-const props = defineProps<{
-  modelValue: boolean
-  editingBill?: BillRecord | null
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  'bill-added': [bill: Omit<BillRecord, 'id' | 'createdAt' | 'updatedAt'>]
-  'bill-updated': [bill: Omit<BillRecord, 'createdAt' | 'updatedAt'>]
-}>()
-
-const { t, locale } = useI18n()
-const { input, summary, isValidInput, resetForm } = useInstallmentCalculator()
-const { billSources } = useBillManager()
-
-const billName = ref('')
-const showSourceSuggestions = ref(false)
-const startDateString = ref('')
-
-// 用途相关状态
-const showPurposeSelector = ref(false)
-const showHiddenPurposes = ref(false)
-const selectedPurpose = ref<Purpose | null>(null)
-
-// 获取用途选项
-const visiblePurposes = getVisiblePurposes()
-const hiddenPurposes = getHiddenPurposes()
-
-// 计算属性
-const isEditing = computed(() => !!props.editingBill)
-
-// 获取当前日期字符串
-const getCurrentDateString = () => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-// 自动计算已还期数
-const calculateAutoPaidInstallments = () => {
-  if (!startDateString.value) return
-
-  const startDate = new Date(startDateString.value)
-  const paidInstallments = calculatePaidInstallments(startDate, input.value.installments)
-  input.value.paidInstallments = paidInstallments
-}
-
-// 检查是否有输入
-const hasInput = ref(false)
-const checkHasInput = () => {
-  hasInput.value =
-    input.value.totalAmount > 0 ||
-    input.value.installments > 0 ||
-    input.value.annualRate > 0 ||
-    input.value.paidInstallments > 0 ||
-    input.value.paidAmount > 0
-}
-
-// 监听输入变化
-watch(input, checkHasInput, { deep: true })
-
-// 监听语言变化，强制重新渲染
-watch(
-  locale,
-  () => {
-    // 语言切换时，强制组件重新渲染
-    // 通过更新key来强制重新渲染整个组件
-    if (props.modelValue) {
-      // 重新初始化表单状态以确保i18n正确应用
-      nextTick(() => {
-        // 确保DOM更新完成后再进行其他操作
-      })
-    }
-  },
-  { flush: 'post' },
-)
-
-// 过滤来源建议
-const filteredSources = computed(() => {
-  if (!input.value.source) return billSources.value
-  return billSources.value.filter((source) =>
-    source.toLowerCase().includes(input.value.source.toLowerCase()),
-  )
-})
-
-// 选择来源
-const selectSource = (source: string) => {
-  input.value.source = source
-  showSourceSuggestions.value = false
-}
-
-// 处理失焦事件
-const handleBlur = () => {
-  setTimeout(() => {
-    showSourceSuggestions.value = false
-  }, 200)
-}
-
-// 选择用途
-const selectPurpose = (purpose: Purpose) => {
-  selectedPurpose.value = purpose
-  input.value.purpose = purpose.id
-  showPurposeSelector.value = false
-  showHiddenPurposes.value = false
-}
-
-// 处理背景点击
-const handleBackdropClick = (event: Event) => {
-  // 确保只有点击背景遮罩时才关闭Modal，不是点击Modal内容
-  if (event.target === event.currentTarget) {
-    emit('update:modelValue', false)
-  }
-}
-
-// 监听开始日期变化，自动计算已还期数
-watch(startDateString, (newDate) => {
-  if (newDate && input.value.autoCalculatePaidInstallments) {
-    calculateAutoPaidInstallments()
-  }
-})
-
-// 监听自动计算开关变化
-watch(
-  () => input.value.autoCalculatePaidInstallments,
-  (enabled) => {
-    if (enabled && startDateString.value) {
-      calculateAutoPaidInstallments()
-    }
-  },
-)
-
-// 监听编辑模式变化，填充数据
-watch(
-  () => props.editingBill,
-  (bill) => {
-    if (bill) {
-      // 编辑模式：填充现有数据
-      billName.value = bill.name
-      input.value = { ...bill.input }
-      if (bill.input.startDate) {
-        startDateString.value = getCurrentDateString()
-      }
-      // 设置选中的用途
-      if (bill.input.purpose) {
-        selectedPurpose.value = getPurposeById(bill.input.purpose) || null
-      }
-    } else {
-      // 添加模式：重置表单
-      resetForm()
-      billName.value = ''
-      startDateString.value = ''
-      selectedPurpose.value = null
-      showPurposeSelector.value = false
-      showHiddenPurposes.value = false
-    }
-  },
-  { immediate: true },
-)
-
-// 提交表单
-const handleSubmit = () => {
-  if (!isValidInput.value || !billName.value.trim() || !summary.value || !selectedPurpose.value) {
-    return
-  }
-
-  if (isEditing.value && props.editingBill) {
-    // 编辑模式：更新账单
-    emit('bill-updated', {
-      id: props.editingBill.id,
-      name: billName.value.trim(),
-      input: { ...input.value },
-      summary: summary.value,
-    })
-  } else {
-    // 添加模式：添加新账单
-    emit('bill-added', {
-      name: billName.value.trim(),
-      input: { ...input.value },
-      summary: summary.value,
-    })
-  }
-
-  // 关闭模态框
-  emit('update:modelValue', false)
-}
-</script>

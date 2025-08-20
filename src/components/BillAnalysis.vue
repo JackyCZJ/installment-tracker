@@ -1,3 +1,394 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import {
+  Pie as PieChart,
+  Bar as BarChart,
+  Line as LineChart,
+  Doughnut as DoughnutChart,
+} from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  type TooltipItem,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+} from 'chart.js'
+import type { BillRecord, SalaryAnalysis } from '../types/installment'
+import { getPurposeDisplayNameById } from '../config/purposes'
+
+const props = withDefaults(defineProps<Props>(), {
+  monthlySalary: 0,
+  salaryAnalysis: undefined,
+})
+
+// 注册Chart.js组件
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+)
+
+interface Props {
+  bills: BillRecord[]
+  monthlySalary?: number
+  salaryAnalysis?: SalaryAnalysis
+}
+
+const currentChartType = ref('amount')
+const monthlySalary = ref(props.monthlySalary)
+
+const chartTypes = [
+  { label: '金额分布', value: 'amount' },
+  { label: '利率对比', value: 'rate' },
+  { label: '还款进度', value: 'progress' },
+  { label: '来源统计', value: 'source' },
+  { label: '用途统计', value: 'purpose' },
+  { label: '工资分析', value: 'salary' },
+]
+
+// 生成随机颜色
+const generateColors = (count: number) => {
+  const colors = [
+    '#3B82F6',
+    '#10B981',
+    '#F59E0B',
+    '#EF4444',
+    '#8B5CF6',
+    '#06B6D4',
+    '#84CC16',
+    '#F97316',
+    '#EC4899',
+    '#6366F1',
+  ]
+  return colors.slice(0, count)
+}
+
+// 格式化货币
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('zh-CN').format(amount)
+}
+
+// 金额分布饼图数据
+const amountChartData = computed(() => ({
+  labels: props.bills.map((bill) => bill.name),
+  datasets: [
+    {
+      label: '账单金额',
+      data: props.bills.map((bill) => bill.input.totalAmount),
+      backgroundColor: generateColors(props.bills.length),
+      borderColor: generateColors(props.bills.length).map((color) => `${color}80`),
+      borderWidth: 2,
+    },
+  ],
+}))
+
+// 利率对比柱状图数据
+const rateChartData = computed(() => ({
+  labels: props.bills.map((bill) => bill.name),
+  datasets: [
+    {
+      label: '年利率 (%)',
+      data: props.bills.map((bill) => bill.input.annualRate),
+      backgroundColor: generateColors(props.bills.length).map((color) => `${color}80`),
+      borderColor: generateColors(props.bills.length),
+      borderWidth: 2,
+    },
+  ],
+}))
+
+// 还款进度折线图数据
+const progressChartData = computed(() => ({
+  labels: props.bills.map((bill) => bill.name),
+  datasets: [
+    {
+      label: '还款进度 (%)',
+      data: props.bills.map((bill) => bill.summary.progressPercentage),
+      borderColor: '#3B82F6',
+      backgroundColor: '#3B82F680',
+      tension: 0.4,
+      fill: true,
+    },
+  ],
+}))
+
+// 来源统计环形图数据
+const sourceChartData = computed(() => {
+  const sourceMap = new Map<string, number>()
+  props.bills.forEach((bill) => {
+    const source = bill.input.source || '未分类'
+    sourceMap.set(source, (sourceMap.get(source) || 0) + 1)
+  })
+
+  return {
+    labels: Array.from(sourceMap.keys()),
+    datasets: [
+      {
+        label: '账单数量',
+        data: Array.from(sourceMap.values()),
+        backgroundColor: generateColors(sourceMap.size),
+        borderColor: generateColors(sourceMap.size).map((color) => `${color}80`),
+        borderWidth: 2,
+      },
+    ],
+  }
+})
+
+// 用途统计数据
+const purposeStats = computed(() => {
+  const purposeMap = new Map<string, { count: number; totalAmount: number; bills: BillRecord[] }>()
+
+  props.bills.forEach((bill) => {
+    const purpose = bill.input.purpose || '其他'
+    const existing = purposeMap.get(purpose) || { count: 0, totalAmount: 0, bills: [] }
+    purposeMap.set(purpose, {
+      count: existing.count + 1,
+      totalAmount: existing.totalAmount + bill.input.totalAmount,
+      bills: [...existing.bills, bill],
+    })
+  })
+
+  const totalAmount = props.bills.reduce((sum, bill) => sum + bill.input.totalAmount, 0)
+
+  return Array.from(purposeMap.entries())
+    .map(([purpose, data]) => ({
+      purpose,
+      displayName: getPurposeDisplayNameById(purpose) || purpose,
+      count: data.count,
+      totalAmount: data.totalAmount,
+      averageAmount: data.totalAmount / data.count,
+      percentage: (data.totalAmount / totalAmount) * 100,
+      bills: data.bills,
+    }))
+    .sort((a, b) => b.totalAmount - a.totalAmount)
+})
+
+// 用途数量分布图表数据
+const purposeCountChartData = computed(() => ({
+  labels: purposeStats.value.map((stat) => stat.displayName),
+  datasets: [
+    {
+      label: '账单数量',
+      data: purposeStats.value.map((stat) => stat.count),
+      backgroundColor: generateColors(purposeStats.value.length),
+      borderColor: generateColors(purposeStats.value.length).map((color) => `${color}80`),
+      borderWidth: 2,
+    },
+  ],
+}))
+
+// 用途金额分布图表数据
+const purposeAmountChartData = computed(() => ({
+  labels: purposeStats.value.map((stat) => stat.displayName),
+  datasets: [
+    {
+      label: '账单金额',
+      data: purposeStats.value.map((stat) => stat.totalAmount),
+      backgroundColor: generateColors(purposeStats.value.length),
+      borderColor: generateColors(purposeStats.value.length).map((color) => `${color}80`),
+      borderWidth: 2,
+    },
+  ],
+}))
+
+// 工资分析图表数据
+const salaryChartData = computed(() => {
+  if (!props.salaryAnalysis) return null
+
+  return {
+    labels: ['月工资', '月还款总额', '剩余工资'],
+    datasets: [
+      {
+        label: '金额 (元)',
+        data: [
+          props.salaryAnalysis.monthlySalary,
+          props.salaryAnalysis.totalMonthlyPayment,
+          props.salaryAnalysis.remainingSalary,
+        ],
+        backgroundColor: ['#10B981', '#EF4444', '#3B82F6'],
+        borderColor: ['#10B981', '#EF4444', '#3B82F6'],
+        borderWidth: 2,
+      },
+    ],
+  }
+})
+
+// 图表配置选项
+const pieChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+      labels: {
+        color: '#E5E7EB',
+        font: {
+          size: 12,
+        },
+      },
+    },
+    tooltip: {
+      callbacks: {
+        label: (context: TooltipItem<'pie'>) => {
+          const label = context.label || ''
+          const value = context.parsed
+          return `${label}: ¥${value.toLocaleString()}`
+        },
+      },
+    },
+  },
+}
+
+const barChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
+    },
+    tooltip: {
+      callbacks: {
+        label: (context: TooltipItem<'bar'>) => {
+          return `年利率: ${(context.parsed as any).y}%`
+        },
+      },
+    },
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: {
+        color: '#E5E7EB',
+      },
+      grid: {
+        color: '#374151',
+      },
+    },
+    x: {
+      ticks: {
+        color: '#E5E7EB',
+      },
+      grid: {
+        color: '#374151',
+      },
+    },
+  },
+}
+
+const lineChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
+    },
+    tooltip: {
+      callbacks: {
+        label: (context: TooltipItem<'line'>) => {
+          return `还款进度: ${(context.parsed as any).y.toFixed(1)}%`
+        },
+      },
+    },
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      max: 100,
+      ticks: {
+        color: '#E5E7EB',
+        callback: (value: string | number) => `${value}%`,
+      },
+      grid: {
+        color: '#374151',
+      },
+    },
+    x: {
+      ticks: {
+        color: '#E5E7EB',
+      },
+      grid: {
+        color: '#374151',
+      },
+    },
+  },
+}
+
+const doughnutChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+      labels: {
+        color: '#E5E7EB',
+        font: {
+          size: 12,
+        },
+      },
+    },
+    tooltip: {
+      callbacks: {
+        label: (context: TooltipItem<'doughnut'>) => {
+          const label = context.label || ''
+          const value = context.parsed
+          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+          const percentage = ((value / total) * 100).toFixed(1)
+          return `${label}: ${value}个 (${percentage}%)`
+        },
+      },
+    },
+  },
+}
+
+const salaryChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
+    },
+    tooltip: {
+      callbacks: {
+        label: (context: TooltipItem<'bar'>) => {
+          return `金额: ¥${context.parsed.y.toLocaleString()}`
+        },
+      },
+    },
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: {
+        color: '#E5E7EB',
+        callback: (value: string | number) => `¥${Number(value).toLocaleString()}`,
+      },
+      grid: {
+        color: '#374151',
+      },
+    },
+    x: {
+      ticks: {
+        color: '#E5E7EB',
+      },
+      grid: {
+        color: '#374151',
+      },
+    },
+  },
+}
+</script>
+
 <template>
   <div class="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl p-8 border border-white/20">
     <!-- 头部 -->
@@ -45,13 +436,13 @@
       <button
         v-for="chartType in chartTypes"
         :key="chartType.value"
-        @click="currentChartType = chartType.value"
         :class="[
           'px-4 py-2 rounded-lg font-semibold transition-all duration-300',
           currentChartType === chartType.value
             ? 'bg-blue-500 text-white shadow-lg'
             : 'bg-white/10 text-gray-300 hover:bg-white/20',
         ]"
+        @click="currentChartType = chartType.value"
       >
         {{ chartType.label }}
       </button>
@@ -201,7 +592,7 @@
         </div>
 
         <!-- 月还款分布图 -->
-        <div class="h-80" v-if="salaryChartData">
+        <div v-if="salaryChartData" class="h-80">
           <BarChart :data="salaryChartData" :options="salaryChartOptions" />
         </div>
       </div>
@@ -226,393 +617,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import {
-  Pie as PieChart,
-  Bar as BarChart,
-  Line as LineChart,
-  Doughnut as DoughnutChart,
-} from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-} from 'chart.js'
-import type { BillRecord } from '../types/installment'
-import { getPurposeDisplayNameById } from '../config/purposes'
-
-// 注册Chart.js组件
-ChartJS.register(
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-)
-
-interface Props {
-  bills: BillRecord[]
-  monthlySalary?: number
-  salaryAnalysis?: any
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  monthlySalary: 0,
-  salaryAnalysis: null,
-})
-
-const currentChartType = ref('amount')
-const monthlySalary = ref(props.monthlySalary)
-
-const chartTypes = [
-  { label: '金额分布', value: 'amount' },
-  { label: '利率对比', value: 'rate' },
-  { label: '还款进度', value: 'progress' },
-  { label: '来源统计', value: 'source' },
-  { label: '用途统计', value: 'purpose' },
-  { label: '工资分析', value: 'salary' },
-]
-
-// 生成随机颜色
-const generateColors = (count: number) => {
-  const colors = [
-    '#3B82F6',
-    '#10B981',
-    '#F59E0B',
-    '#EF4444',
-    '#8B5CF6',
-    '#06B6D4',
-    '#84CC16',
-    '#F97316',
-    '#EC4899',
-    '#6366F1',
-  ]
-  return colors.slice(0, count)
-}
-
-// 格式化货币
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('zh-CN').format(amount)
-}
-
-// 金额分布饼图数据
-const amountChartData = computed(() => ({
-  labels: props.bills.map((bill) => bill.name),
-  datasets: [
-    {
-      label: '账单金额',
-      data: props.bills.map((bill) => bill.input.totalAmount),
-      backgroundColor: generateColors(props.bills.length),
-      borderColor: generateColors(props.bills.length).map((color) => color + '80'),
-      borderWidth: 2,
-    },
-  ],
-}))
-
-// 利率对比柱状图数据
-const rateChartData = computed(() => ({
-  labels: props.bills.map((bill) => bill.name),
-  datasets: [
-    {
-      label: '年利率 (%)',
-      data: props.bills.map((bill) => bill.input.annualRate),
-      backgroundColor: generateColors(props.bills.length).map((color) => color + '80'),
-      borderColor: generateColors(props.bills.length),
-      borderWidth: 2,
-    },
-  ],
-}))
-
-// 还款进度折线图数据
-const progressChartData = computed(() => ({
-  labels: props.bills.map((bill) => bill.name),
-  datasets: [
-    {
-      label: '还款进度 (%)',
-      data: props.bills.map((bill) => bill.summary.progressPercentage),
-      borderColor: '#3B82F6',
-      backgroundColor: '#3B82F680',
-      tension: 0.4,
-      fill: true,
-    },
-  ],
-}))
-
-// 来源统计环形图数据
-const sourceChartData = computed(() => {
-  const sourceMap = new Map<string, number>()
-  props.bills.forEach((bill) => {
-    const source = bill.input.source || '未分类'
-    sourceMap.set(source, (sourceMap.get(source) || 0) + 1)
-  })
-
-  return {
-    labels: Array.from(sourceMap.keys()),
-    datasets: [
-      {
-        label: '账单数量',
-        data: Array.from(sourceMap.values()),
-        backgroundColor: generateColors(sourceMap.size),
-        borderColor: generateColors(sourceMap.size).map((color) => color + '80'),
-        borderWidth: 2,
-      },
-    ],
-  }
-})
-
-// 用途统计数据
-const purposeStats = computed(() => {
-  const purposeMap = new Map<string, { count: number; totalAmount: number; bills: BillRecord[] }>()
-
-  props.bills.forEach((bill) => {
-    const purpose = bill.input.purpose || '其他'
-    const existing = purposeMap.get(purpose) || { count: 0, totalAmount: 0, bills: [] }
-    purposeMap.set(purpose, {
-      count: existing.count + 1,
-      totalAmount: existing.totalAmount + bill.input.totalAmount,
-      bills: [...existing.bills, bill],
-    })
-  })
-
-  const totalAmount = props.bills.reduce((sum, bill) => sum + bill.input.totalAmount, 0)
-
-  return Array.from(purposeMap.entries())
-    .map(([purpose, data]) => ({
-      purpose,
-      displayName: getPurposeDisplayNameById(purpose) || purpose,
-      count: data.count,
-      totalAmount: data.totalAmount,
-      averageAmount: data.totalAmount / data.count,
-      percentage: (data.totalAmount / totalAmount) * 100,
-      bills: data.bills,
-    }))
-    .sort((a, b) => b.totalAmount - a.totalAmount)
-})
-
-// 用途数量分布图表数据
-const purposeCountChartData = computed(() => ({
-  labels: purposeStats.value.map((stat) => stat.displayName),
-  datasets: [
-    {
-      label: '账单数量',
-      data: purposeStats.value.map((stat) => stat.count),
-      backgroundColor: generateColors(purposeStats.value.length),
-      borderColor: generateColors(purposeStats.value.length).map((color) => color + '80'),
-      borderWidth: 2,
-    },
-  ],
-}))
-
-// 用途金额分布图表数据
-const purposeAmountChartData = computed(() => ({
-  labels: purposeStats.value.map((stat) => stat.displayName),
-  datasets: [
-    {
-      label: '账单金额',
-      data: purposeStats.value.map((stat) => stat.totalAmount),
-      backgroundColor: generateColors(purposeStats.value.length),
-      borderColor: generateColors(purposeStats.value.length).map((color) => color + '80'),
-      borderWidth: 2,
-    },
-  ],
-}))
-
-// 工资分析图表数据
-const salaryChartData = computed(() => {
-  if (!props.salaryAnalysis) return null
-
-  return {
-    labels: ['月工资', '月还款总额', '剩余工资'],
-    datasets: [
-      {
-        label: '金额 (元)',
-        data: [
-          props.salaryAnalysis.monthlySalary,
-          props.salaryAnalysis.totalMonthlyPayment,
-          props.salaryAnalysis.remainingSalary,
-        ],
-        backgroundColor: ['#10B981', '#EF4444', '#3B82F6'],
-        borderColor: ['#10B981', '#EF4444', '#3B82F6'],
-        borderWidth: 2,
-      },
-    ],
-  }
-})
-
-// 图表配置选项
-const pieChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'bottom' as const,
-      labels: {
-        color: '#E5E7EB',
-        font: {
-          size: 12,
-        },
-      },
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          const label = context.label || ''
-          const value = context.parsed
-          return `${label}: ¥${value.toLocaleString()}`
-        },
-      },
-    },
-  },
-}
-
-const barChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          return `年利率: ${context.parsed.y}%`
-        },
-      },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        color: '#E5E7EB',
-      },
-      grid: {
-        color: '#374151',
-      },
-    },
-    x: {
-      ticks: {
-        color: '#E5E7EB',
-      },
-      grid: {
-        color: '#374151',
-      },
-    },
-  },
-}
-
-const lineChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          return `还款进度: ${context.parsed.y.toFixed(1)}%`
-        },
-      },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      max: 100,
-      ticks: {
-        color: '#E5E7EB',
-        callback: (value: any) => `${value}%`,
-      },
-      grid: {
-        color: '#374151',
-      },
-    },
-    x: {
-      ticks: {
-        color: '#E5E7EB',
-      },
-      grid: {
-        color: '#374151',
-      },
-    },
-  },
-}
-
-const doughnutChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'bottom' as const,
-      labels: {
-        color: '#E5E7EB',
-        font: {
-          size: 12,
-        },
-      },
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          const label = context.label || ''
-          const value = context.parsed
-          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
-          const percentage = ((value / total) * 100).toFixed(1)
-          return `${label}: ${value}个 (${percentage}%)`
-        },
-      },
-    },
-  },
-}
-
-const salaryChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          return `金额: ¥${context.parsed.y.toLocaleString()}`
-        },
-      },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        color: '#E5E7EB',
-        callback: (value: any) => `¥${value.toLocaleString()}`,
-      },
-      grid: {
-        color: '#374151',
-      },
-    },
-    x: {
-      ticks: {
-        color: '#E5E7EB',
-      },
-      grid: {
-        color: '#374151',
-      },
-    },
-  },
-}
-</script>

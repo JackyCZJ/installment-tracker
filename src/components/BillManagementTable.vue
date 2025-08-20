@@ -1,3 +1,57 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useBillManager } from '../composables/useBillManager'
+import type { BillRecord } from '../types/installment'
+import { useCurrency } from '../composables/useCurrency'
+import BillModal from './BillModal.vue'
+import BillAnalysis from './BillAnalysis.vue'
+import { formatDate } from '../utils/dateUtils'
+import { getPurposeDisplayNameById } from '../config/purposes'
+
+const { t } = useI18n()
+
+const {
+  bills,
+  totalSummary,
+  salaryAnalysis,
+  addBill,
+  updateBill,
+  removeBill,
+  exportToCSV,
+  exportToPDF,
+} = useBillManager()
+
+const { formatAmount } = useCurrency()
+
+const showAddModal = ref(false)
+const showAnalysis = ref(false)
+const editingBill = ref<BillRecord | null>(null)
+
+// 编辑账单
+const editBill = (bill: BillRecord) => {
+  editingBill.value = bill
+  showAddModal.value = true
+}
+
+// 处理账单添加
+const handleBillAdded = (billData: Omit<BillRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
+  addBill(billData.name, billData.input, billData.summary)
+  editingBill.value = null
+}
+
+// 处理账单更新
+const handleBillUpdated = (billData: Omit<BillRecord, 'createdAt' | 'updatedAt'>) => {
+  updateBill((billData as any).id, billData.name, billData.input, billData.summary)
+  editingBill.value = null
+}
+
+// 获取用途显示名称
+const getPurposeDisplayName = (purpose: string) => {
+  return getPurposeDisplayNameById(purpose) || purpose
+}
+</script>
+
 <template>
   <div
     class="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl p-4 sm:p-6 lg:p-8 border border-white/20"
@@ -34,8 +88,8 @@
 
       <!-- 添加账单按钮 -->
       <button
-        @click="showAddModal = true"
         class="flex items-center justify-center px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl text-xs sm:text-sm lg:text-base"
+        @click="showAddModal = true"
       >
         <svg
           class="w-4 h-4 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1.5 sm:mr-2"
@@ -210,9 +264,9 @@
             </div>
             <div class="flex items-center space-x-2">
               <button
-                @click="editBill(bill)"
                 class="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"
                 :title="t('billManagement.edit')"
+                @click="editBill(bill)"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -224,9 +278,9 @@
                 </svg>
               </button>
               <button
-                @click="removeBill(bill.id)"
                 class="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
                 :title="t('billManagement.delete')"
+                @click="removeBill(bill.id)"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -290,7 +344,7 @@
               <div
                 class="bg-gradient-to-r from-blue-500 to-cyan-600 h-2 rounded-full"
                 :style="{ width: `${bill.summary.progressPercentage}%` }"
-              ></div>
+              />
             </div>
           </div>
         </div>
@@ -389,7 +443,7 @@
                     <div
                       class="bg-gradient-to-r from-blue-500 to-cyan-600 h-2 rounded-full"
                       :style="{ width: `${bill.summary.progressPercentage}%` }"
-                    ></div>
+                    />
                   </div>
                   <span class="text-xs text-gray-300"
                     >{{ bill.summary.progressPercentage.toFixed(1) }}%</span
@@ -399,9 +453,9 @@
               <td class="px-6 py-4">
                 <div class="flex items-center space-x-2">
                   <button
-                    @click="editBill(bill)"
                     class="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"
                     :title="t('billManagement.edit')"
+                    @click="editBill(bill)"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -413,9 +467,9 @@
                     </svg>
                   </button>
                   <button
-                    @click="removeBill(bill.id)"
                     class="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
                     :title="t('billManagement.delete')"
+                    @click="removeBill(bill.id)"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -466,8 +520,8 @@
     >
       <div class="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         <button
-          @click="exportToCSV"
           class="flex items-center justify-center w-full sm:w-auto px-4 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+          @click="exportToCSV"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -480,8 +534,8 @@
           {{ t('billManagement.exportCSV') }}
         </button>
         <button
-          @click="exportToPDF"
           class="flex items-center justify-center w-full sm:w-auto px-4 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+          @click="exportToPDF"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -496,8 +550,8 @@
       </div>
 
       <button
-        @click="showAnalysis = true"
         class="flex items-center justify-center w-full sm:w-auto px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+        @click="showAnalysis = true"
       >
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -524,61 +578,8 @@
       v-if="showAnalysis"
       :bills="bills"
       :total-summary="totalSummary"
-      :salary-analysis="salaryAnalysis"
+      :salary-analysis="salaryAnalysis || undefined"
       @close="showAnalysis = false"
     />
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useBillManager } from '../composables/useBillManager'
-import { useCurrency } from '../composables/useCurrency'
-import BillModal from './BillModal.vue'
-import BillAnalysis from './BillAnalysis.vue'
-import { formatDate } from '../utils/dateUtils'
-import { getPurposeDisplayNameById } from '../config/purposes'
-
-const { t } = useI18n()
-
-const {
-  bills,
-  totalSummary,
-  salaryAnalysis,
-  addBill,
-  updateBill,
-  removeBill,
-  exportToCSV,
-  exportToPDF,
-} = useBillManager()
-
-const { formatAmount } = useCurrency()
-
-const showAddModal = ref(false)
-const showAnalysis = ref(false)
-const editingBill = ref(null)
-
-// 编辑账单
-const editBill = (bill: any) => {
-  editingBill.value = bill
-  showAddModal.value = true
-}
-
-// 处理账单添加
-const handleBillAdded = (billData: any) => {
-  addBill(billData.name, billData.input, billData.summary)
-  editingBill.value = null
-}
-
-// 处理账单更新
-const handleBillUpdated = (billData: any) => {
-  updateBill(billData.id, billData.name, billData.input, billData.summary)
-  editingBill.value = null
-}
-
-// 获取用途显示名称
-const getPurposeDisplayName = (purpose: string) => {
-  return getPurposeDisplayNameById(purpose) || purpose
-}
-</script>

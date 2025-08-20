@@ -7,19 +7,19 @@
 export function calculatePaidInstallments(startDate: Date, totalInstallments: number): number {
   const now = new Date()
   const start = new Date(startDate)
-  
+
   // 计算月份差
   const yearDiff = now.getFullYear() - start.getFullYear()
   const monthDiff = now.getMonth() - start.getMonth()
   const totalMonths = yearDiff * 12 + monthDiff
-  
+
   // 如果当前日期在开始日期的同月或之后，且日期大于等于开始日期，则算作已还
   const dayDiff = now.getDate() - start.getDate()
   const adjustedMonths = dayDiff >= 0 ? totalMonths : totalMonths - 1
-  
+
   // 确保已还期数不超过总分期数，且不为负数
   const paidInstallments = Math.max(0, Math.min(adjustedMonths, totalInstallments))
-  
+
   return paidInstallments
 }
 
@@ -41,7 +41,7 @@ export function formatDate(date: Date): string {
  * @returns Date 对象
  */
 export function parseDate(dateString: string): Date {
-  return new Date(dateString + 'T00:00:00')
+  return new Date(`${dateString}T00:00:00`)
 }
 
 /**
