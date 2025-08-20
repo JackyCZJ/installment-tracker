@@ -1,4 +1,4 @@
-const CACHE_NAME = 'installment-tracker-v4'
+const CACHE_NAME = 'installment-tracker-v5'
 // 动态推导当前 scope 的路径，兼容任意子路径部署
 const BASE_PATH = self.registration.scope.replace(/\/$/, '')
 const urlsToCache = [
@@ -16,6 +16,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(urlsToCache)
     }),
   )
+  self.skipWaiting()
 })
 
 // 激活 Service Worker
@@ -33,6 +34,7 @@ self.addEventListener('activate', (event) => {
       )
     }),
   )
+  self.clients.claim()
 })
 
 // 拦截网络请求
@@ -44,7 +46,7 @@ self.addEventListener('fetch', (event) => {
   const isHttp = url.protocol === 'http:' || url.protocol === 'https:'
   const isGet = request.method === 'GET'
   const isSameOrigin = url.origin === self.location.origin
-  if (!isHttp || !isGet || !isSameOrigin) {
+  if (!isHttp || !isGet || !isSameOrigin || url.protocol === 'chrome-extension:') {
     return
   }
 
@@ -59,9 +61,10 @@ self.addEventListener('fetch', (event) => {
             return response
           }
           const responseToCache = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache).catch(() => { })
-          })
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(request, responseToCache))
+            .catch(() => { })
           return response
         })
         .catch(() => cached || Response.error())
