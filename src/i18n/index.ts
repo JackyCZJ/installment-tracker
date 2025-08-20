@@ -36,6 +36,7 @@ export type SupportLocale = (typeof SUPPORT_LOCALES)[number]
 
 export const i18n = createI18n({
   legacy: false,
+  globalInjection: true,
   locale: getStoredLocale(),
   fallbackLocale: 'zh-Hans',
   messages: {

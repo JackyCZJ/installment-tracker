@@ -1,4 +1,4 @@
-const CACHE_NAME = 'installment-tracker-v1'
+const CACHE_NAME = 'installment-tracker-v2'
 const BASE_PATH = '/installment-tracker'
 const urlsToCache = [
   `${BASE_PATH}/`,
