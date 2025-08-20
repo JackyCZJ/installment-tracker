@@ -1,4 +1,4 @@
-const CACHE_NAME = 'installment-tracker-v3'
+const CACHE_NAME = 'installment-tracker-v4'
 // 动态推导当前 scope 的路径，兼容任意子路径部署
 const BASE_PATH = self.registration.scope.replace(/\/$/, '')
 const urlsToCache = [
@@ -37,29 +37,34 @@ self.addEventListener('activate', (event) => {
 
 // 拦截网络请求
 self.addEventListener('fetch', (event) => {
+  const request = event.request
+  const url = new URL(request.url)
+
+  // 仅处理同源的 http/https GET 请求，过滤 chrome-extension 等协议
+  const isHttp = url.protocol === 'http:' || url.protocol === 'https:'
+  const isGet = request.method === 'GET'
+  const isSameOrigin = url.origin === self.location.origin
+  if (!isHttp || !isGet || !isSameOrigin) {
+    return
+  }
+
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // 如果缓存中有响应，返回缓存的响应
-      if (response) {
-        return response
+    caches.match(request).then((cached) => {
+      if (cached) {
+        return cached
       }
-
-      // 否则从网络获取
-      return fetch(event.request).then((response) => {
-        // 检查是否收到有效响应
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+      return fetch(request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response
+          }
+          const responseToCache = response.clone()
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache).catch(() => { })
+          })
           return response
-        }
-
-        // 克隆响应
-        const responseToCache = response.clone()
-
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache)
         })
-
-        return response
-      })
+        .catch(() => cached || Response.error())
     }),
   )
 })
